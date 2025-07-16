@@ -1,0 +1,54 @@
+{
+  "name": "claude-code-agentapi",
+  "displayName": "Claude Code AgentAPI",
+  "description": "VS Code extension for Claude Code through AgentAPI",
+  "version": "0.3.1",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": ["Other"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/local/claude-code-agentapi"
+  },
+  "activationEvents": [
+    "onCommand:claude-code-agentapi.chat"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "claude-code-agentapi.start",
+        "title": "Start Claude Code Server"
+      },
+      {
+        "command": "claude-code-agentapi.stop",
+        "title": "Stop Claude Code Server"
+      },
+      {
+        "command": "claude-code-agentapi.chat",
+        "title": "Open Claude Code Chat"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "claude-code-agentapi.chat",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
