@@ -10,6 +10,11 @@ let screenOutputChannel: vscode.OutputChannel | null = null;
 let rawDataOutputChannel: vscode.OutputChannel | null = null;
 const API_URL = 'http://localhost:3284';
 
+// Управление скоростью polling
+let isInteractiveMode = false;
+const NORMAL_POLLING_INTERVAL = 1000; // 1 секунда для обычного режима
+const INTERACTIVE_POLLING_INTERVAL = 150; // 150мс для интерактивного режима
+
 export function activate(context: vscode.ExtensionContext) {
     // Создаем Output каналы
     screenOutputChannel = vscode.window.createOutputChannel('Claude Code - Screen');
@@ -173,20 +178,56 @@ async function showRawData(): Promise<void> {
 
 function startMessagePolling(): void {
     if (messagePolling) clearInterval(messagePolling);
-    messagePolling = setInterval(async () => {
+    
+    const poll = async () => {
         try {
             const response = await axios.get(`${API_URL}/messages`);
             chatPanel?.webview.postMessage({ command: 'messages', messages: response.data.messages });
             
-            // Также записываем последнее сообщение в Screen Output для отладки
-            if (screenOutputChannel && response.data.messages.length > 0) {
+            // Проверяем, есть ли интерактивный контент в последнем сообщении
+            if (response.data.messages.length > 0) {
                 const lastMessage = response.data.messages[response.data.messages.length - 1];
-                screenOutputChannel.appendLine(`[${new Date().toISOString()}] ${lastMessage.role}: ${lastMessage.content}`);
+                
+                // Также записываем последнее сообщение в Screen Output для отладки
+                if (screenOutputChannel) {
+                    screenOutputChannel.appendLine(`[${new Date().toISOString()}] ${lastMessage.role}: ${lastMessage.content}`);
+                }
+                
+                // Определяем интерактивный режим по наличию вариантов выбора или специальных символов
+                const hasInteractiveContent = lastMessage.role === 'agent' && 
+                    (lastMessage.content.includes('1.') || 
+                     lastMessage.content.includes('2.') ||
+                     lastMessage.content.includes('Please select') ||
+                     lastMessage.content.includes('Choose') ||
+                     lastMessage.content.includes('[1]') ||
+                     lastMessage.content.includes('[2]'));
+                
+                // Если обнаружен интерактив и мы еще не в интерактивном режиме
+                if (hasInteractiveContent && !isInteractiveMode) {
+                    isInteractiveMode = true;
+                    // Перезапускаем polling с быстрым интервалом
+                    startMessagePolling();
+                    return;
+                }
+                // Если интерактив закончился
+                else if (!hasInteractiveContent && isInteractiveMode) {
+                    isInteractiveMode = false;
+                    // Перезапускаем polling с обычным интервалом
+                    startMessagePolling();
+                    return;
+                }
             }
         } catch (error) {
             console.error('Ошибка обновления сообщений:', error);
         }
-    }, 1000);
+    };
+    
+    // Запускаем первый poll сразу
+    poll();
+    
+    // Устанавливаем интервал в зависимости от режима
+    const interval = isInteractiveMode ? INTERACTIVE_POLLING_INTERVAL : NORMAL_POLLING_INTERVAL;
+    messagePolling = setInterval(poll, interval);
 }
 
 let lastScreenContent = '';
@@ -216,6 +257,11 @@ function startScreenSubscription(): void {
 async function handleSendMessage(text: string): Promise<void> {
     try {
         await axios.post(`${API_URL}/message`, { content: text, type: 'user' });
+        // Сбрасываем интерактивный режим при отправке сообщения
+        if (isInteractiveMode) {
+            isInteractiveMode = false;
+            startMessagePolling(); // Перезапускаем с обычной скоростью
+        }
     } catch (error) {
         console.error('Ошибка отправки сообщения:', error);
         vscode.window.showErrorMessage('Ошибка отправки сообщения');
@@ -237,6 +283,11 @@ async function handleSendKey(key: string): Promise<void> {
             content: keyMap[key] || key,
             type: 'raw'
         });
+        // Если отправлен Enter в интерактивном режиме - сбрасываем его
+        if (key === 'enter' && isInteractiveMode) {
+            isInteractiveMode = false;
+            startMessagePolling(); // Перезапускаем с обычной скоростью
+        }
     } catch (error) {
         console.error('Ошибка отправки клавиши:', error);
         vscode.window.showErrorMessage('Ошибка отправки клавиши');
