@@ -1,48 +1,50 @@
 # Claude Code AgentAPI Extension
 
-VS Code расширение для работы с Claude Code через AgentAPI.
+VS Code extension for working with Claude Code through AgentAPI.
 
-## Установка
+## Installation
 
-1. Установите зависимости:
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Скомпилируйте TypeScript:
+2. Compile TypeScript:
 ```bash
 npm run compile
 ```
 
-3. Создайте пакет:
+3. Create package:
 ```bash
 npm install -g vsce
 vsce package
 ```
 
-4. Установите расширение:
+4. Install extension:
 ```bash
-code --install-extension claude-code-agentapi-0.0.1.vsix
+code --install-extension claude-code-agentapi-0.3.4.vsix
 ```
 
-## Использование
+## Usage
 
-### Горячие клавиши
-- `Cmd+Shift+C` - открыть чат с Claude
+### Hotkeys
+- `Cmd+Shift+C` - open chat with Claude
 
-### Команды (Command Palette)
-- `Start Claude Code Server` - запустить сервер
-- `Stop Claude Code Server` - остановить сервер  
-- `Open Claude Code Chat` - открыть чат
+### Commands (Command Palette)
+- `Start Claude Code Server` - start server
+- `Stop Claude Code Server` - stop server  
+- `Open Claude Code Chat` - open chat
 
-### Функции
-- Автоматический запуск AgentAPI сервера
-- Автоподтверждение доверия к папке
-- Интеграция с рабочим пространством VS Code
-- Веб-панель для общения с Claude
+### Features
+- Automatic AgentAPI server startup
+- Auto-confirmation of folder trust
+- Integration with VS Code workspace
+- Web panel for communicating with Claude
+- Dynamic polling speed adjustment for interactive messages
+- Real-time message updates
 
-## Требования
+## Requirements
 - Node.js 18+
-- AgentAPI установлен и доступен в PATH
-- Claude Code установлен и настроен
+- AgentAPI installed and available in PATH
+- Claude Code installed and configured
 - VS Code 1.74+

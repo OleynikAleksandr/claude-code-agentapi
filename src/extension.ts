@@ -8,37 +8,41 @@ let messagePolling: NodeJS.Timer | null = null;
 let screenSubscription: any = null;
 let screenOutputChannel: vscode.OutputChannel | null = null;
 let rawDataOutputChannel: vscode.OutputChannel | null = null;
-let currentPollingInterval = 1000; // Текущий интервал polling (по умолчанию 1 секунда)
-let isInteractiveMode = false; // Флаг интерактивного режима
+let currentPollingInterval = 1000; // Current polling interval (default 1 second)
+let isInteractiveMode = false; // Interactive mode flag
 const API_URL = 'http://localhost:3284';
 
-// Функция для определения интерактивного сообщения по конкретным заголовкам
+// Function to detect interactive messages by specific headers
 function isInteractiveMessage(content: string): boolean {
     const interactiveHeaders = [
         "Select IDE",
         "Connect to an IDE for integrated development features",
-        "Modified    Created     # Messages Summary",  // Таблица сессий из /resume
-        "Resume Session"
+        "Modified    Created     # Messages Summary",  // Sessions table from /resume
+        "Resume Session",
+        "Do you want to proceed?",
+        "Opened changes in Visual Studio Code",
+        "Yes, and don't ask again",
+        "No, and tell Claude what to do differently"
     ];
     
     return interactiveHeaders.some(header => content.includes(header));
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    // Создаем Output каналы
+    // Create Output channels
     screenOutputChannel = vscode.window.createOutputChannel('Claude Code - Screen');
     rawDataOutputChannel = vscode.window.createOutputChannel('Claude Code - Raw Data');
     
     const startCommand = vscode.commands.registerCommand('claude-code-agentapi.start', async () => {
         if (agentApiProcess) {
-            vscode.window.showWarningMessage('Claude Code сервер уже запущен');
+            vscode.window.showWarningMessage('Claude Code server is already running');
             return;
         }
         try {
             await startAgentApiServer();
-            vscode.window.showInformationMessage('Claude Code сервер запущен');
+            vscode.window.showInformationMessage('Claude Code server started');
         } catch (error) {
-            vscode.window.showErrorMessage(`Ошибка запуска сервера: ${error}`);
+            vscode.window.showErrorMessage(`Server startup error: ${error}`);
         }
     });
 
@@ -51,15 +55,15 @@ export function activate(context: vscode.ExtensionContext) {
             clearInterval(messagePolling);
             messagePolling = null;
         }
-        // Сбрасываем интерактивный режим при остановке
+        // Reset interactive mode on stop
         isInteractiveMode = false;
         currentPollingInterval = 1000;
     });
 
     const chatCommand = vscode.commands.registerCommand('claude-code-agentapi.chat', async () => {
         if (!agentApiProcess) {
-            const start = await vscode.window.showWarningMessage('Сервер не запущен. Запустить?', 'Да', 'Нет');
-            if (start === 'Да') {
+            const start = await vscode.window.showWarningMessage('Server not running. Start?', 'Yes', 'No');
+            if (start === 'Yes') {
                 await vscode.commands.executeCommand('claude-code-agentapi.start');
             } else {
                 return;
@@ -87,7 +91,7 @@ export function activate(context: vscode.ExtensionContext) {
                     await handleSendKey(message.key);
                     break;
                 case 'toggleView':
-                    // Переключение между chat и screen режимами
+                    // Switch between chat and screen modes
                     break;
                 case 'showRawData':
                     await showRawData();
@@ -134,14 +138,14 @@ async function startAgentApiServer(): Promise<void> {
         const cwd = workspaceFolder?.uri.fsPath || process.cwd();
         agentApiProcess = spawn('agentapi', ['server', '--', 'claude'], { cwd, stdio: 'pipe' });
         agentApiProcess.on('error', (error) => {
-            reject(`Ошибка запуска agentapi: ${error.message}`);
+            reject(`Error starting agentapi: ${error.message}`);
         });
         setTimeout(async () => {
             try {
                 await axios.get(`${API_URL}/status`);
                 resolve();
             } catch (error) {
-                reject('Сервер не ответил');
+                reject('Server did not respond');
             }
         }, 3000);
     });
@@ -152,7 +156,7 @@ async function initializeChat(): Promise<void> {
         const response = await axios.get(`${API_URL}/messages`);
         chatPanel?.webview.postMessage({ command: 'messages', messages: response.data.messages });
     } catch (error) {
-        console.error('Ошибка загрузки сообщений:', error);
+        console.error('Error loading messages:', error);
     }
 }
 
@@ -163,7 +167,7 @@ async function showRawData(): Promise<void> {
             axios.get(`${API_URL}/status`)
         ]);
         
-        // Записываем данные в Output канал
+        // Write data to Output channel
         if (rawDataOutputChannel) {
             rawDataOutputChannel.clear();
             rawDataOutputChannel.appendLine('=== MESSAGES RAW DATA ===');
@@ -174,14 +178,14 @@ async function showRawData(): Promise<void> {
             rawDataOutputChannel.show();
         }
         
-        // Также отправляем в webview для совместимости
+        // Also send to webview for compatibility
         chatPanel?.webview.postMessage({ 
             command: 'rawData', 
             messagesRaw: messagesResponse.data,
             statusRaw: statusResponse.data
         });
     } catch (error) {
-        console.error('Ошибка получения raw данных:', error);
+        console.error('Error getting raw data:', error);
         if (rawDataOutputChannel) {
             rawDataOutputChannel.appendLine(`ERROR: ${error}`);
         }
@@ -196,34 +200,34 @@ function startMessagePolling(): void {
             const response = await axios.get(`${API_URL}/messages`);
             chatPanel?.webview.postMessage({ command: 'messages', messages: response.data.messages });
             
-            // Проверяем последнее сообщение на интерактивность
+            // Check last message for interactivity
             if (response.data.messages.length > 0) {
                 const lastMessage = response.data.messages[response.data.messages.length - 1];
                 const wasInteractive = isInteractiveMode;
                 const nowInteractive = lastMessage.role === 'agent' && isInteractiveMessage(lastMessage.content);
                 
-                // Изменяем интервал при переходе в/из интерактивного режима
+                // Change interval when entering/exiting interactive mode
                 if (nowInteractive !== wasInteractive) {
                     isInteractiveMode = nowInteractive;
-                    const newInterval = nowInteractive ? 75 : 1000; // 75ms для интерактивного режима, 1000ms для обычного
+                    const newInterval = nowInteractive ? 75 : 1000; // 75ms for interactive mode, 1000ms for normal
                     
                     if (newInterval !== currentPollingInterval) {
                         currentPollingInterval = newInterval;
-                        console.log(`Изменен интервал polling на ${currentPollingInterval}ms (интерактивный режим: ${isInteractiveMode})`);
+                        console.log(`Changed polling interval to ${currentPollingInterval}ms (interactive mode: ${isInteractiveMode})`);
                         
-                        // Перезапускаем polling с новым интервалом
+                        // Restart polling with new interval
                         if (messagePolling) clearInterval(messagePolling);
                         messagePolling = setInterval(pollMessages, currentPollingInterval);
                     }
                 }
                 
-                // Также записываем последнее сообщение в Screen Output для отладки
+                // Also write last message to Screen Output for debugging
                 if (screenOutputChannel) {
                     screenOutputChannel.appendLine(`[${new Date().toISOString()}] ${lastMessage.role}: ${lastMessage.content}`);
                 }
             }
         } catch (error) {
-            console.error('Ошибка обновления сообщений:', error);
+            console.error('Error updating messages:', error);
         }
     };
     
@@ -235,14 +239,14 @@ function startScreenSubscription(): void {
         clearInterval(screenSubscription);
     }
     
-    // Временно отключаем screen subscription, так как polling messages должен быть достаточным
+    // Temporarily disable screen subscription as polling messages should be sufficient
     console.log('Screen subscription disabled - using message polling instead');
     
-    // Возможно вернемся к этому позже, когда найдем правильный способ подключения к SSE
+    // May return to this later when we find the right way to connect to SSE
     /*
     screenSubscription = setInterval(async () => {
         try {
-            // Пробуем получить текущий screen content
+            // Try to get current screen content
             const response = await axios.get(`${API_URL}/status`);
             console.log('Status response:', response.data);
         } catch (error) {
@@ -255,14 +259,14 @@ function startScreenSubscription(): void {
 async function handleSendMessage(text: string): Promise<void> {
     try {
         await axios.post(`${API_URL}/message`, { content: text, type: 'user' });
-        // Сбрасываем интерактивный режим при отправке сообщения
+        // Reset interactive mode when sending message
         if (isInteractiveMode) {
             isInteractiveMode = false;
-            startMessagePolling(); // Перезапускаем с обычной скоростью
+            startMessagePolling(); // Restart with normal speed
         }
     } catch (error) {
-        console.error('Ошибка отправки сообщения:', error);
-        vscode.window.showErrorMessage('Ошибка отправки сообщения');
+        console.error('Error sending message:', error);
+        vscode.window.showErrorMessage('Error sending message');
     }
 }
 
@@ -281,14 +285,14 @@ async function handleSendKey(key: string): Promise<void> {
             content: keyMap[key] || key,
             type: 'raw'
         });
-        // Если отправлен Enter в интерактивном режиме - сбрасываем его
+        // If Enter sent in interactive mode - reset it
         if (key === 'enter' && isInteractiveMode) {
             isInteractiveMode = false;
-            startMessagePolling(); // Перезапускаем с обычной скоростью
+            startMessagePolling(); // Restart with normal speed
         }
     } catch (error) {
-        console.error('Ошибка отправки клавиши:', error);
-        vscode.window.showErrorMessage('Ошибка отправки клавиши');
+        console.error('Error sending key:', error);
+        vscode.window.showErrorMessage('Error sending key');
     }
 }
 
@@ -335,10 +339,10 @@ function getWebviewContent(): string {
     <div id="screen" class="screen tab-content"></div>
     <div id="raw" class="raw tab-content"></div>
     <div class="input-container">
-        <input id="input" class="message-input" placeholder="Введите сообщение...">
-        <button onclick="sendText()">Отправить</button>
+        <input id="input" class="message-input" placeholder="Enter message...">
+        <button onclick="sendText()">Send</button>
         <label style="margin-left: 10px;">
-            <input type="checkbox" id="autoSwitch" checked onchange="toggleAutoSwitch()"> Авто-переключение
+            <input type="checkbox" id="autoSwitch" checked onchange="toggleAutoSwitch()"> Auto-switch
         </label>
         <button onclick="showRawDataOutput()" style="margin-left: 10px;">Raw Data Output</button>
     </div>
@@ -367,9 +371,9 @@ function getWebviewContent(): string {
                 div.textContent = msg.content;
                 chat.appendChild(div);
             });
-            // Убрали автоскролл - теперь можно спокойно читать историю
+            // Removed auto-scroll - now you can calmly read the history
             
-            // Переключить на вкладку chat только если включено автопереключение
+            // Switch to chat tab only if auto-switch is enabled
             if (autoSwitchEnabled) {
                 switchTab('chat');
                 console.log('displayMessages: Switched to chat tab');
@@ -382,15 +386,15 @@ function getWebviewContent(): string {
             const screen = document.getElementById('screen');
             const chat = document.getElementById('chat');
             
-            // Обработка пустого содержимого или "(no content)"
+            // Handle empty content or "(no content)"
             const trimmedContent = screenContent ? screenContent.trim() : '';
             
-            // Отладка: выводим содержимое в консоль для диагностики
+            // Debug: output content to console for diagnostics
             console.log('Screen content:', JSON.stringify(screenContent));
             console.log('Trimmed content:', JSON.stringify(trimmedContent));
             console.log('Content length:', trimmedContent.length);
             
-            // Более агрессивная проверка на пустое содержимое
+            // More aggressive check for empty content
             const isEmpty = !screenContent || 
                            trimmedContent === '' || 
                            trimmedContent === '(no content)' ||
@@ -406,13 +410,13 @@ function getWebviewContent(): string {
             
             if (isEmpty) {
                 console.log('Switching to chat mode with friendly message');
-                // Показать дружелюбное сообщение в chat вместо пустого screen
+                // Show friendly message in chat instead of empty screen
                 chat.innerHTML = '<div style="color: var(--vscode-descriptionForeground); font-style: italic; text-align: center; padding: 20px;">' +
-                    '<p>💬 Готов к работе</p>' +
-                    '<p>Введите сообщение или команду для продолжения</p>' +
+                    '<p>💬 Ready to work</p>' +
+                    '<p>Enter message or command to continue</p>' +
                     '</div>';
                 
-                // Переключить на вкладку chat только если включено автопереключение
+                // Switch to chat tab only if auto-switch is enabled
                 if (autoSwitchEnabled) {
                     switchTab('chat');
                     console.log('Switched to chat tab with friendly message');
@@ -422,7 +426,7 @@ function getWebviewContent(): string {
             } else {
                 console.log('Switching to screen mode');
                 screen.textContent = screenContent;
-                // Переключить на вкладку screen только если включено автопереключение
+                // Switch to screen tab only if auto-switch is enabled
                 if (autoSwitchEnabled) {
                     switchTab('screen');
                     console.log('Switched to screen tab');
@@ -445,11 +449,11 @@ function getWebviewContent(): string {
         }
         
         function switchTab(tabName) {
-            // Убрать активность со всех вкладок
+            // Remove active state from all tabs
             document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
-            // Активировать выбранную вкладку
+            // Activate selected tab
             document.querySelectorAll('.tab-button').forEach(btn => {
                 if (btn.textContent.toLowerCase().includes(tabName.toLowerCase()) || 
                     (tabName === 'raw' && btn.textContent.includes('Raw Data'))) {
@@ -458,7 +462,7 @@ function getWebviewContent(): string {
             });
             document.getElementById(tabName).classList.add('active');
             
-            // Если выбрана raw data, запросить данные
+            // If raw data is selected, request data
             if (tabName === 'raw') {
                 vscode.postMessage({ command: 'showRawData' });
             }
@@ -491,7 +495,7 @@ function getWebviewContent(): string {
             }
         });
         
-        // Обработчик для input поля - только стрелки и Escape
+        // Handler for input field - only arrows and Escape
         document.getElementById('input').addEventListener('keydown', function(e) {
             switch(e.key) {
                 case 'ArrowUp':
@@ -512,9 +516,9 @@ function getWebviewContent(): string {
             }
         });
         
-        // Обработчик для всех клавиш клавиатуры
+        // Handler for all keyboard keys
         document.addEventListener('keydown', function(e) {
-            // Проверяем, что фокус не на input поле
+            // Check that focus is not on input field
             if (e.target !== document.getElementById('input')) {
                 switch(e.key) {
                     case 'ArrowUp':

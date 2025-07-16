@@ -1,139 +1,149 @@
 # Changelog
 
-Все изменения в проекте Claude Code AgentAPI будут документированы в этом файле.
+All changes to the Claude Code AgentAPI project will be documented in this file.
 
-Формат основан на [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-и проект придерживается [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.4] - 2025-07-16
+### Added
+- New patterns for detecting interactive messages:
+  - "Do you want to proceed?" - confirmation dialogs
+  - "Opened changes in Visual Studio Code" - IDE change notifications
+  - "Yes, and don't ask again" - save choice options
+  - "No, and tell Claude what to do differently" - alternative response options
+### Changed
+- Improved recognition of interactive elements for faster response (75ms)
 
 ## [0.3.3] - 2025-07-16
-### Добавлено
-- Динамическое изменение частоты polling экрана для интерактивных сообщений
-- Детектирование интерактивных сообщений по заголовкам ("Select IDE", "Resume Session", etc.)
-- Ускорение обновления до 75ms при интерактивных сообщениях (было 1000ms)
-### Изменено
-- Улучшена отзывчивость интерфейса при работе с интерактивными элементами
+### Added
+- Dynamic polling frequency changes for interactive messages
+- Detection of interactive messages by headers ("Select IDE", "Resume Session", etc.)
+- Speed up to 75ms for interactive messages (was 1000ms)
+### Changed
+- Improved interface responsiveness when working with interactive elements
 
 ## [0.3.2] - 2025-07-16
-### Убрано
-- Элементы управления под полем ввода (стрелки ↑↓←→, Enter, Escape)
-- Упоминание о клавишах управления в дружелюбном сообщении
-### Изменено
-- Тестовая версия для проверки стабильности отображения сообщений Assistant
+### Removed
+- Control elements under input field (arrows ↑↓←→, Enter, Escape)
+- Mention of control keys in friendly message
+### Changed
+- Test version to check stability of Assistant message display
 
 ## [0.3.1] - 2025-07-16
-### Изменено
-- Убран автоскролл в чате - теперь можно спокойно читать историю сообщений
-- Скролл остается на месте при обновлении сообщений
-### Исправлено
-- Проблема с невозможностью прокрутки истории чата вверх
+### Changed
+- Removed auto-scroll in chat - now you can calmly read message history
+- Scroll stays in place when messages are updated
+### Fixed
+- Issue with inability to scroll chat history up
 
 ## [0.3.0] - 2025-07-16
-### Базируется на
-- Стабильной версии 0.1.3 (полная копия)
-### Изменено
-- Добавлена проверка символа ⎿ в функцию displayScreen
-### Сохранено
-- ВСЕ функции из версии 0.1.3:
-  - Три вкладки: Chat, Screen, Raw Data
-  - Чекбокс "Авто-переключение"
-  - Кнопки управления: стрелки ↑↓←→, Enter, Escape
-  - Кнопка Raw Data Output
-  - Output каналы для диагностики
+### Based on
+- Stable version 0.1.3 (complete copy)
+### Changed
+- Added ⎿ symbol check to displayScreen function
+### Preserved
+- ALL functions from version 0.1.3:
+  - Three tabs: Chat, Screen, Raw Data
+  - "Auto-switch" checkbox
+  - Control buttons: arrows ↑↓←→, Enter, Escape
+  - Raw Data Output button
+  - Output channels for diagnostics
 
 ## [0.2.0] - 2025-07-16
-### Изменено
-- Убраны все отладочные console.log сообщения для чистоты консоли
-- Оптимизирована частота polling с 1 секунды до 500мс
-- Убрано логирование в Screen Output канал при каждом обновлении
+### Changed
+- Removed all debug console.log messages for clean console
+- Optimized polling frequency from 1 second to 500ms
+- Removed logging to Screen Output channel on each update
 
-### Проблемы
-- ⚠️ Сообщения исчезают из чата через какое-то время
+### Issues
+- ⚠️ Messages disappear from chat after some time
 
 ## [0.1.9] - 2025-07-16
-### Исправлено
-- Логика отображения дружелюбного сообщения (показывается только когда нет сообщений)
-- Включен screen subscription через endpoint /screen
-### Добавлено
-- Отладочные сообщения для диагностики фильтрации
+### Fixed
+- Logic for displaying friendly message (shown only when no messages)
+- Enabled screen subscription via /screen endpoint
+### Added
+- Debug messages for filtering diagnostics
 
-### Проблемы
-- ⚠️ Избыточное логирование в консоль
+### Issues
+- ⚠️ Excessive console logging
 
 ## [0.1.8] - 2025-07-16
-### Добавлено
-- Фильтрация слэш команд (не отображаются в чате)
-- Многострочное поле ввода (textarea вместо input)
-- Автоматическое изменение высоты поля ввода
-- Поддержка Shift+Enter для новой строки
+### Added
+- Slash command filtering (not displayed in chat)
+- Multi-line input field (textarea instead of input)
+- Automatic input field height adjustment
+- Shift+Enter support for new line
 
 ## [0.1.7] - 2025-07-16
-### Возвращено
-- Вкладки Chat и Screen для корректного отображения
-- Функция автоматического переключения между вкладками
-### Сохранено
-- Кнопка Raw Data Output
-- Убраны кнопки управления (стрелки, Enter, Escape)
+### Restored
+- Chat and Screen tabs for correct display
+- Automatic switching between tabs function
+### Preserved
+- Raw Data Output button
+- Removed control buttons (arrows, Enter, Escape)
 
 ## [0.1.6] - 2025-07-16
-### Возвращено
-- Кнопка Raw Data Output (необходима для обновления данных)
+### Restored
+- Raw Data Output button (needed for data updates)
 
 ## [0.1.5] - 2025-07-16
-### Убрано
-- Вкладки Screen и Raw Data
-- Кнопки стрелок, Enter и Escape
-- Чекбокс автопереключения
-- Кнопка Raw Data Output
+### Removed
+- Screen and Raw Data tabs
+- Arrow buttons, Enter and Escape
+- Auto-switch checkbox
+- Raw Data Output button
 
-### Проблемы
-- ⚠️ Начались проблемы с отображением сообщений
+### Issues
+- ⚠️ Message display problems started
 
 ## [0.1.4] - 2025-07-16
-### Исправлено
-- Добавлена проверка символа ⎿ в пустом содержимом
-- Улучшена проверка для формата "  ⎿  (no content)  ..."
-- Добавлена проверка на пустую строку без trim
+### Fixed
+- Added ⎿ symbol check in empty content
+- Improved check for "  ⎿  (no content)  ..." format
+- Added check for empty string without trim
 
-## [0.1.3] - 2025-07-16 ✅ СТАБИЛЬНАЯ ВЕРСИЯ
-### Добавлено
-- Вкладки: Chat, Screen, Raw Data
-- Чекбокс "Авто-переключение"
-- Кнопки управления: стрелки ↑↓←→, Enter, Escape
-- Output каналы для диагностики
-### Состояние
-- ✅ Все функции работают стабильно
-- ✅ Сообщения отображаются корректно
+## [0.1.3] - 2025-07-16 ✅ STABLE VERSION
+### Added
+- Tabs: Chat, Screen, Raw Data
+- "Auto-switch" checkbox
+- Control buttons: arrows ↑↓←→, Enter, Escape
+- Output channels for diagnostics
+### Status
+- ✅ All functions work stably
+- ✅ Messages display correctly
 
 ## [0.1.2] - 2025-07-16
-### Добавлено
-- Контроль автопереключения вкладок
+### Added
+- Tab auto-switch control
 
 ## [0.1.1] - 2025-07-16
-### Добавлено
-- Вкладка Raw Data
+### Added
+- Raw Data tab
 
 ## [0.1.0] - 2025-07-16
-### Исправлено
-- Ошибка EventSource (отключен screen subscription)
+### Fixed
+- EventSource error (disabled screen subscription)
 
 ## [0.0.9] - [0.0.5] - 2025-07-16
-### Попытки
-- Различные попытки исправить "(no content)"
+### Attempts
+- Various attempts to fix "(no content)"
 
 ## [0.0.4] - 2025-07-16
-### Добавлено
-- Поддержка реальных клавиш клавиатуры
+### Added
+- Real keyboard key support
 
 ## [0.0.3] - 2025-07-16
-### Добавлено
-- Screen subscription (не работал)
+### Added
+- Screen subscription (didn't work)
 
 ## [0.0.2] - 2025-07-16
-### Исправлено
-- Тип сообщения с 'user' на 'raw' для специальных клавиш
+### Fixed
+- Message type from 'user' to 'raw' for special keys
 
 ## [0.0.1] - 2025-07-16
-### Начальная версия
-- Базовая функциональность расширения
-- Интеграция с AgentAPI
-- Веб-панель для чата
+### Initial version
+- Basic extension functionality
+- AgentAPI integration
+- Web panel for chat
