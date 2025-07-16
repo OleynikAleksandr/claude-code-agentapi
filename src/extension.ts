@@ -8,12 +8,21 @@ let messagePolling: NodeJS.Timer | null = null;
 let screenSubscription: any = null;
 let screenOutputChannel: vscode.OutputChannel | null = null;
 let rawDataOutputChannel: vscode.OutputChannel | null = null;
+let currentPollingInterval = 1000; // Текущий интервал polling (по умолчанию 1 секунда)
+let isInteractiveMode = false; // Флаг интерактивного режима
 const API_URL = 'http://localhost:3284';
 
-// Управление скоростью polling
-let isInteractiveMode = false;
-const NORMAL_POLLING_INTERVAL = 1000; // 1 секунда для обычного режима
-const INTERACTIVE_POLLING_INTERVAL = 150; // 150мс для интерактивного режима
+// Функция для определения интерактивного сообщения по конкретным заголовкам
+function isInteractiveMessage(content: string): boolean {
+    const interactiveHeaders = [
+        "Select IDE",
+        "Connect to an IDE for integrated development features",
+        "Modified    Created     # Messages Summary",  // Таблица сессий из /resume
+        "Resume Session"
+    ];
+    
+    return interactiveHeaders.some(header => content.includes(header));
+}
 
 export function activate(context: vscode.ExtensionContext) {
     // Создаем Output каналы
@@ -42,6 +51,9 @@ export function activate(context: vscode.ExtensionContext) {
             clearInterval(messagePolling);
             messagePolling = null;
         }
+        // Сбрасываем интерактивный режим при остановке
+        isInteractiveMode = false;
+        currentPollingInterval = 1000;
     });
 
     const chatCommand = vscode.commands.registerCommand('claude-code-agentapi.chat', async () => {
@@ -179,42 +191,35 @@ async function showRawData(): Promise<void> {
 function startMessagePolling(): void {
     if (messagePolling) clearInterval(messagePolling);
     
-    const poll = async () => {
+    const pollMessages = async () => {
         try {
             const response = await axios.get(`${API_URL}/messages`);
             chatPanel?.webview.postMessage({ command: 'messages', messages: response.data.messages });
             
-            // Проверяем, есть ли интерактивный контент в последнем сообщении
+            // Проверяем последнее сообщение на интерактивность
             if (response.data.messages.length > 0) {
                 const lastMessage = response.data.messages[response.data.messages.length - 1];
+                const wasInteractive = isInteractiveMode;
+                const nowInteractive = lastMessage.role === 'agent' && isInteractiveMessage(lastMessage.content);
+                
+                // Изменяем интервал при переходе в/из интерактивного режима
+                if (nowInteractive !== wasInteractive) {
+                    isInteractiveMode = nowInteractive;
+                    const newInterval = nowInteractive ? 75 : 1000; // 75ms для интерактивного режима, 1000ms для обычного
+                    
+                    if (newInterval !== currentPollingInterval) {
+                        currentPollingInterval = newInterval;
+                        console.log(`Изменен интервал polling на ${currentPollingInterval}ms (интерактивный режим: ${isInteractiveMode})`);
+                        
+                        // Перезапускаем polling с новым интервалом
+                        if (messagePolling) clearInterval(messagePolling);
+                        messagePolling = setInterval(pollMessages, currentPollingInterval);
+                    }
+                }
                 
                 // Также записываем последнее сообщение в Screen Output для отладки
                 if (screenOutputChannel) {
                     screenOutputChannel.appendLine(`[${new Date().toISOString()}] ${lastMessage.role}: ${lastMessage.content}`);
-                }
-                
-                // Определяем интерактивный режим по наличию вариантов выбора или специальных символов
-                const hasInteractiveContent = lastMessage.role === 'agent' && 
-                    (lastMessage.content.includes('1.') || 
-                     lastMessage.content.includes('2.') ||
-                     lastMessage.content.includes('Please select') ||
-                     lastMessage.content.includes('Choose') ||
-                     lastMessage.content.includes('[1]') ||
-                     lastMessage.content.includes('[2]'));
-                
-                // Если обнаружен интерактив и мы еще не в интерактивном режиме
-                if (hasInteractiveContent && !isInteractiveMode) {
-                    isInteractiveMode = true;
-                    // Перезапускаем polling с быстрым интервалом
-                    startMessagePolling();
-                    return;
-                }
-                // Если интерактив закончился
-                else if (!hasInteractiveContent && isInteractiveMode) {
-                    isInteractiveMode = false;
-                    // Перезапускаем polling с обычным интервалом
-                    startMessagePolling();
-                    return;
                 }
             }
         } catch (error) {
@@ -222,15 +227,8 @@ function startMessagePolling(): void {
         }
     };
     
-    // Запускаем первый poll сразу
-    poll();
-    
-    // Устанавливаем интервал в зависимости от режима
-    const interval = isInteractiveMode ? INTERACTIVE_POLLING_INTERVAL : NORMAL_POLLING_INTERVAL;
-    messagePolling = setInterval(poll, interval);
+    messagePolling = setInterval(pollMessages, currentPollingInterval);
 }
-
-let lastScreenContent = '';
 
 function startScreenSubscription(): void {
     if (screenSubscription) {
@@ -344,16 +342,6 @@ function getWebviewContent(): string {
         </label>
         <button onclick="showRawDataOutput()" style="margin-left: 10px;">Raw Data Output</button>
     </div>
-    <div class="controls">
-        <div class="arrow-keys">
-            <button class="up" onclick="sendKey('up')">↑</button>
-            <button class="left" onclick="sendKey('left')">←</button>
-            <button class="down" onclick="sendKey('down')">↓</button>
-            <button class="right" onclick="sendKey('right')">→</button>
-        </div>
-        <button onclick="sendKey('enter')">Enter</button>
-        <button onclick="sendKey('escape')">Esc</button>
-    </div>
     <script>
         const vscode = acquireVsCodeApi();
         let autoSwitchEnabled = true;
@@ -422,7 +410,6 @@ function getWebviewContent(): string {
                 chat.innerHTML = '<div style="color: var(--vscode-descriptionForeground); font-style: italic; text-align: center; padding: 20px;">' +
                     '<p>💬 Готов к работе</p>' +
                     '<p>Введите сообщение или команду для продолжения</p>' +
-                    '<p style="font-size: 0.9em; margin-top: 10px;">Используйте стрелки ↑↓←→, Enter, Escape для интерактивного взаимодействия</p>' +
                     '</div>';
                 
                 // Переключить на вкладку chat только если включено автопереключение

@@ -2,7 +2,7 @@
   "name": "claude-code-agentapi",
   "displayName": "Claude Code AgentAPI",
   "description": "VS Code extension for Claude Code through AgentAPI",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "engines": {
     "vscode": "^1.75.0"
   },
